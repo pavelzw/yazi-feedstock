@@ -1,5 +1,6 @@
 set CARGO_PROFILE_RELEASE_STRIP=symbols
 set CARGO_PROFILE_RELEASE_LTO=fat
+set VERGEN_GIT_SHA=v%PKG_VERSION%
 
 cargo install --path %SRC_DIR%/yazi-build --no-track --locked --bins --profile release-windows yazi-build
 if %errorlevel% NEQ 0 exit /b %errorlevel%
