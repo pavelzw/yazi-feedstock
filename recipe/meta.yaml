@@ -23,7 +23,9 @@ requirements:
 
 test:
   commands:
-    - yazi --help
+    # `--help` triggers TTY setup before arg parsing in 26.9.1, which fails
+    # without a real tty; `--version` has a pre-parse fast path that avoids it
+    - yazi --version
 
 about:
   home: https://github.com/sxyazi/yazi
