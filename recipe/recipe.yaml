@@ -28,6 +28,13 @@ build:
       - if: linux and build_platform != target_platform
         then:
           - unset CFLAGS CXXFLAGS CPPFLAGS
+      # rustc links this target through `-fuse-ld=lld`, and rust-lld doesn't understand
+      # the ppc64le relocations GCC emits into jemalloc's objects ("unknown relocation
+      # (31) against symbol _rjem_je_witness_prefork"). GCC honours the last -fuse-ld,
+      # so appending this switches us back to GNU ld.
+      - if: target_platform == "linux-ppc64le"
+        then:
+          - export CARGO_BUILD_RUSTFLAGS="${CARGO_BUILD_RUSTFLAGS:-} -C link-arg=-fuse-ld=bfd"
       - if: unix
         then:
           - cargo install --path yazi-build --no-track --locked --bins yazi-build
