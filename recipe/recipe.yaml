@@ -56,9 +56,78 @@ requirements:
       then:
         - make
     - cargo-bundle-licenses
+  # Yazi runs fine on its own, but the default config shells out to a pile of
+  # external binaries, each of which unlocks one feature. `ya env` prints the
+  # list it probes for. These are exposed as CEP-44 optional dependency groups,
+  # so users opt in with e.g. `yazi[extras=["preview", "search"]]`.
+  # Groups are trimmed on win-arm64 and linux-riscv64, where most of these
+  # tools aren't packaged for conda-forge yet.
+  extras:
+    # Everything the preset previewers and preloaders spawn. `file` is in here
+    # because MIME detection is what picks the previewer (and opener) at all.
+    preview:
+      - if: target_platform != "win-arm64" and target_platform != "linux-riscv64"
+        then:
+          - file # MIME detection, overridable via $YAZI_FILE_ONE
+          - ffmpeg # video thumbnails, plus ffprobe for media metadata
+          - imagemagick # `magick`, for formats image-rs can't decode
+          - poppler # `pdftoppm`, for PDF pages
+          - resvg # SVG rasterisation
+      - if: target_platform != "linux-riscv64"
+        then:
+          - 7zip # `7zz`, for archive previews and `extract.lua`
+      - if: unix
+        then:
+          - jq # JSON pretty-printing; no Windows build on conda-forge
+      - if: unix and target_platform != "linux-riscv64"
+        then:
+          - chafa # image fallback for terminals without a graphics protocol
+    # The default keymap binds `s` to `search --via=fd`, `S` to
+    # `search --via=rg`, `z` to the fzf plugin and `Z` to the zoxide plugin.
+    search:
+      - fd-find
+      - ripgrep
+      - fzf
+      - if: target_platform != "win-arm64" and target_platform != "linux-ppc64le" and target_platform != "linux-riscv64"
+        then:
+          - zoxide
+    # Yank/paste through the system clipboard. macOS uses the built-in `pbcopy`
+    # and Windows talks to the Win32 API directly, so this is X11-only; the
+    # Wayland path wants `wl-copy`, which conda-forge doesn't package.
+    clipboard:
+      - if: linux and target_platform != "linux-riscv64"
+        then:
+          - xclip
+          - xsel
+    # The "Show media info" and "Show EXIF" openers in the default config.
+    metadata:
+      - if: target_platform != "win-arm64" and target_platform != "linux-riscv64"
+        then:
+          - mediainfo
+      - if: unix and target_platform != "linux-riscv64"
+        then:
+          - exiftool
+    # `ya pkg add/upgrade` clones plugins and themes with git.
+    plugins:
+      - if: target_platform != "win-arm64"
+        then:
+          - git
 
 tests:
   - script:
+      # Both binaries resolve the config/cache/state directories before parsing
+      # any argument. On Windows those come from the AppData known folders, which
+      # the shell resolves by expanding `%USERPROFILE%` out of
+      # `HKCU\...\Explorer\User Shell Folders`. rattler-build only forwards
+      # SYSTEMROOT/WINDIR/COMSPEC/TEMP/TMP/PATHEXT into test scripts, so
+      # USERPROFILE is unset, `dirs::config_dir()` returns None and yazi panics
+      # with "Failed to get config directory". Hand it a throwaway profile —
+      # the directories have to exist because SHGetKnownFolderPath verifies them.
+      - if: win
+        then:
+          - mkdir "%SRC_DIR%\.home\AppData\Roaming"
+          - mkdir "%SRC_DIR%\.home\AppData\Local"
+          - set "USERPROFILE=%SRC_DIR%\.home"
       # `--help` triggers TTY setup before arg parsing in 26.9.1, which fails
       # without a real tty; `--version` has a pre-parse fast path that avoids it
       - yazi --version
