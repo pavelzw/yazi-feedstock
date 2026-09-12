@@ -1,0 +1,75 @@
+schema_version: 1
+
+context:
+  name: yazi
+  version: "26.9.1"
+
+package:
+  name: ${{ name|lower }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/sxyazi/yazi/archive/v${{ version }}.tar.gz
+  sha256: 66857f1b670469daf258edd0bb2ea51d9ad3e2cab4eea9684028c80059fd6862
+
+build:
+  number: 1
+  script:
+    env:
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+      CARGO_PROFILE_RELEASE_LTO: fat
+      VERGEN_GIT_SHA: v${{ version }}
+    content:
+      - if: unix
+        then:
+          - cargo install --path yazi-build --no-track --locked --bins yazi-build
+          - cargo install --path yazi-fm --no-track --locked --bins --root ${PREFIX} yazi-fm
+          - cargo install --path yazi-cli --no-track --locked --bins --root ${PREFIX} yazi-cli
+        else:
+          # `release-windows` keeps unwinding enabled, which yazi-fm requires on Windows
+          - cargo install --path yazi-build --no-track --locked --bins --profile release-windows yazi-build
+          - cargo install --path yazi-fm --no-track --locked --bins --root %LIBRARY_PREFIX% --profile release-windows yazi-fm
+          - cargo install --path yazi-cli --no-track --locked --bins --root %LIBRARY_PREFIX% --profile release-windows yazi-cli
+      - cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
+
+requirements:
+  build:
+    - ${{ stdlib("c") }}
+    - ${{ compiler("rust") }}
+    - ${{ compiler("c") }}
+    - if: linux
+      then:
+        - make
+    - cargo-bundle-licenses
+
+tests:
+  - script:
+      # `--help` triggers TTY setup before arg parsing in 26.9.1, which fails
+      # without a real tty; `--version` has a pre-parse fast path that avoids it
+      - yazi --version
+      - ya --version
+  - package_contents:
+      bin:
+        - yazi
+        - ya
+      strict: true
+
+about:
+  homepage: https://github.com/sxyazi/yazi
+  summary: Blazing fast terminal file manager written in Rust, based on async I/O
+  description: |
+    Yazi (means "duck") is a terminal file manager written in Rust,
+    based on non-blocking async I/O. It aims to provide an efficient,
+    user-friendly, and customizable file management experience.
+  license: MIT
+  license_file:
+    - LICENSE
+    - LICENSE-ICONS
+    - THIRDPARTY.yml
+  documentation: https://yazi-rs.github.io/
+  repository: https://github.com/sxyazi/yazi
+
+extra:
+  recipe-maintainers:
+    - hoxbro
+    - pavelzw

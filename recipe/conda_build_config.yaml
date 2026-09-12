@@ -1,5 +1,6 @@
 # Rust's std and the getrandom crate hard-require glibc's getrandom() symbol
 # (added in glibc 2.25), which the default 2.17 sysroot doesn't provide,
 # causing a link error: "undefined symbol: getrandom".
-c_stdlib_version:            # [linux]
-  - "2.28"                    # [linux]
+# riscv64 is excluded because it only has a 2.39 sysroot, which is new enough.
+c_stdlib_version:                        # [linux and not riscv64]
+  - "2.28"                               # [linux and not riscv64]
