@@ -19,6 +19,15 @@ build:
       CARGO_PROFILE_RELEASE_LTO: fat
       VERGEN_GIT_SHA: v${{ version }}
     content:
+      # cc-rs appends the generic ${CFLAGS} to every target it compiles for, so build
+      # scripts built for the build platform also get the target's -march/-mabi flags
+      # and fail (e.g. `x86_64-conda-linux-gnu-cc: unrecognized argument in option
+      # '-mabi=lp64d'` while compiling ring). The rust activation already mirrors these
+      # into the per-triple CFLAGS_<triple>/CXXFLAGS_<triple>/CPPFLAGS_<triple>
+      # variables, so the generic ones are redundant.
+      - if: linux and build_platform != target_platform
+        then:
+          - unset CFLAGS CXXFLAGS CPPFLAGS
       - if: unix
         then:
           - cargo install --path yazi-build --no-track --locked --bins yazi-build
